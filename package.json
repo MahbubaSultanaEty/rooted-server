@@ -1,0 +1,24 @@
+{
+  "name": "rooted-server",
+  "version": "1.0.0",
+  "description": "Rooted — Real Estate Platform API (Express + MongoDB + Better Auth + Groq)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-auth": "^1.2.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "groq-sdk": "^0.13.0",
+    "mongodb": "^6.12.0",
+    "mongoose": "^8.9.5",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

@@ -27,7 +27,7 @@ app.use(
 
 // ── Better Auth — must be mounted BEFORE express.json() ───────
 // Better Auth handles its own body parsing for auth routes
-app.all('/api/auth/*splat', toNodeHandler(auth));
+app.all('/api/auth/*', toNodeHandler(auth));
 
 // ── Body Parsing ──────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));

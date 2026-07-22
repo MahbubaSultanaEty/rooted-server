@@ -1,22 +1,42 @@
 import { auth } from '../lib/auth.js';
+import { fromNodeHeaders } from 'better-auth/node';
 
 export const requireAuth = async (req, res, next) => {
   try {
     const session = await auth.api.getSession({
-      headers: req.headers
+      headers: fromNodeHeaders(req.headers)
     });
     
-    if (!session) {
-      return res.status(401).json({ error: 'Unauthorized: No valid session found' });
+    if (!session || !session.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    // Attach user and session to request object
     req.user = session.user;
-    req.session = session.session;
-    
     next();
-  } catch (err) {
-    console.error('Auth Middleware Error:', err);
-    res.status(500).json({ error: 'Internal server error during authentication' });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication check failed' });
+  }
+};
+
+export const requireAdmin = async (req, res, next) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers)
+    });
+    
+    if (!session || !session.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    if (session.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+    
+    req.user = session.user;
+    next();
+  } catch (error) {
+    console.error('Admin auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication check failed' });
   }
 };

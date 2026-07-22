@@ -11,6 +11,7 @@ import reviewsRouter from './routes/reviews.js';
 import activityRouter from './routes/activity.js';
 import recommendationsRouter from './routes/recommendations.js';
 import chatRouter from './routes/chat.js';
+import usersRouter from './routes/users.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── API Routes ────────────────────────────────────────────────
 app.use('/api/properties', propertiesRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/recommendations', recommendationsRouter);

@@ -1,21 +1,14 @@
-import { initAuth } from '../lib/auth.js';
+import { auth } from '../lib/auth.js';
 import { fromNodeHeaders } from 'better-auth/node';
 
 const noAuth = (res) =>
   res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
 
 export const requireAuth = async (req, res, next) => {
-  const auth = await initAuth();
   if (!auth) return noAuth(res);
   try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers)
-    });
-    
-    if (!session || !session.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+    if (!session?.user) return res.status(401).json({ error: 'Unauthorized' });
     req.user = session.user;
     next();
   } catch (error) {
@@ -25,21 +18,11 @@ export const requireAuth = async (req, res, next) => {
 };
 
 export const requireAdmin = async (req, res, next) => {
-  const auth = await initAuth();
   if (!auth) return noAuth(res);
   try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers)
-    });
-    
-    if (!session || !session.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    
-    if (session.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden: Admin access required' });
-    }
-    
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+    if (!session?.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (session.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden: Admin access required' });
     req.user = session.user;
     next();
   } catch (error) {

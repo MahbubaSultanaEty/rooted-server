@@ -4,7 +4,7 @@ import cors from 'cors';
 import { toNodeHandler } from 'better-auth/node';
 
 import { connectDB } from './db/connect.js';
-import { auth, initAuth } from './lib/auth.js';
+import { auth } from './lib/auth.js';
 
 import propertiesRouter from './routes/properties.js';
 import reviewsRouter from './routes/reviews.js';
@@ -36,15 +36,13 @@ app.use(
   })
 );
 
-// Auth is initialised lazily — the proxy will forward calls once ready.
-// Register the handler unconditionally; it self-checks at request time.
-app.all('/api/auth/*', async (req, res, next) => {
-  const resolvedAuth = await initAuth();
-  if (!resolvedAuth) {
-    return res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
-  }
-  return toNodeHandler(resolvedAuth)(req, res, next);
-});
+if (auth) {
+  app.all('/api/auth/*', toNodeHandler(auth));
+} else {
+  app.all('/api/auth/*', (_req, res) => {
+    res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
+  });
+}
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -57,12 +55,7 @@ app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/chat', chatRouter);
 
 app.get('/', (_req, res) => {
-  res.json({
-    name: 'Rooted API',
-    status: 'ok',
-    health: '/api/health',
-    properties: '/api/properties',
-  });
+  res.json({ name: 'Rooted API', status: 'ok' });
 });
 
 app.get('/api/health', (_req, res) => {
@@ -75,20 +68,18 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error('[Error]', err.message);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-  });
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 if (!process.env.VERCEL) {
-  Promise.all([connectDB(), initAuth()])
+  connectDB()
     .then(() => {
       app.listen(PORT, () => {
         console.log(`🌿 Rooted server running on http://localhost:${PORT}`);
       });
     })
     .catch((err) => {
-      console.error('❌ Startup failed:', err.message);
+      console.error('❌ MongoDB connection failed:', err.message);
       process.exit(1);
     });
 }

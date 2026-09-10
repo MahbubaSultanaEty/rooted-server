@@ -1,10 +1,11 @@
-import { auth } from '../lib/auth.js';
+import { initAuth } from '../lib/auth.js';
 import { fromNodeHeaders } from 'better-auth/node';
 
 const noAuth = (res) =>
   res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
 
 export const requireAuth = async (req, res, next) => {
+  const auth = await initAuth();
   if (!auth) return noAuth(res);
   try {
     const session = await auth.api.getSession({
@@ -24,6 +25,7 @@ export const requireAuth = async (req, res, next) => {
 };
 
 export const requireAdmin = async (req, res, next) => {
+  const auth = await initAuth();
   if (!auth) return noAuth(res);
   try {
     const session = await auth.api.getSession({

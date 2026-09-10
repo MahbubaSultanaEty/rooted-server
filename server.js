@@ -4,7 +4,7 @@ import cors from 'cors';
 import { toNodeHandler } from 'better-auth/node';
 
 import { connectDB } from './db/connect.js';
-import { auth } from './lib/auth.js';
+import { auth, initAuth } from './lib/auth.js';
 
 import propertiesRouter from './routes/properties.js';
 import reviewsRouter from './routes/reviews.js';
@@ -36,13 +36,15 @@ app.use(
   })
 );
 
-if (auth) {
-  app.all('/api/auth/*', toNodeHandler(auth));
-} else {
-  app.all('/api/auth/*', (_req, res) => {
-    res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
-  });
-}
+// Auth is initialised lazily — the proxy will forward calls once ready.
+// Register the handler unconditionally; it self-checks at request time.
+app.all('/api/auth/*', async (req, res, next) => {
+  const resolvedAuth = await initAuth();
+  if (!resolvedAuth) {
+    return res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
+  }
+  return toNodeHandler(resolvedAuth)(req, res, next);
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -79,14 +81,14 @@ app.use((err, req, res, next) => {
 });
 
 if (!process.env.VERCEL) {
-  connectDB()
+  Promise.all([connectDB(), initAuth()])
     .then(() => {
       app.listen(PORT, () => {
         console.log(`🌿 Rooted server running on http://localhost:${PORT}`);
       });
     })
     .catch((err) => {
-      console.error('❌ MongoDB connection failed:', err.message);
+      console.error('❌ Startup failed:', err.message);
       process.exit(1);
     });
 }

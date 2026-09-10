@@ -1,6 +1,6 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { Property } from '../models/Property.js';
-import { User } from '../models/User.js';
 import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
 
 const router = express.Router();
@@ -21,11 +21,23 @@ router.get('/', async (req, res) => {
       sort,
     } = req.query;
 
-    const query = { status: 'active' };
+    const query = {};
+    const and = [{ $or: [{ status: 'active' }, { status: { $exists: false } }] }];
 
     if (search) {
-      query.$text = { $search: search };
+      const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      and.push({
+        $or: [
+          { title: regex },
+          { description: regex },
+          { shortDescription: regex },
+          { 'location.area': regex },
+          { 'location.city': regex },
+        ],
+      });
     }
+    query.$and = and;
     if (city) query['location.city'] = city;
     if (propertyType) query.propertyType = propertyType;
     if (minPrice || maxPrice) {
@@ -46,9 +58,6 @@ router.get('/', async (req, res) => {
       sortObj[field] = isDesc ? -1 : 1;
     } else {
       sortObj = { createdAt: -1 };
-    }
-    if (search && !sort) {
-      sortObj = { score: { $meta: 'textScore' } };
     }
 
     const pageNum = Math.max(1, parseInt(page));
@@ -99,14 +108,22 @@ router.get('/admin/all', requireAdmin, async (req, res) => {
 // GET /api/properties/:id (public)
 router.get('/:id', async (req, res) => {
   try {
-    const property = await Property.findOne({
-      $or: [{ slug: req.params.id }, { _id: req.params.id.match(/^[0-9a-fA-F]{24}$/) ? req.params.id : null }]
-    }).populate('listedBy', 'name email avatarUrl');
+    const { id } = req.params;
+    const or = [{ slug: id }];
+    if (/^[0-9a-fA-F]{24}$/.test(id) && mongoose.isValidObjectId(id)) {
+      or.push({ _id: id });
+    }
+
+    const property = await Property.findOne({ $or: or }).populate(
+      'listedBy',
+      'name email avatarUrl'
+    );
     
     if (!property) return res.status(404).json({ error: 'Property not found' });
     
     res.json({ data: property });
   } catch (error) {
+    console.error('Error fetching property:', error);
     res.status(500).json({ error: 'Failed to fetch property' });
   }
 });

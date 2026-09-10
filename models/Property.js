@@ -55,7 +55,7 @@ const propertySchema = new Schema({
   shortDescription: { type: String, required: true },
   description:      { type: String, required: true },
 
-  listedBy:         { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  listedBy:         { type: Schema.Types.ObjectId, ref: 'User' },
   status:           { type: String, enum: ['active', 'sold', 'rented', 'draft'], default: 'active' },
   listingType:      { type: String, enum: ['sale', 'rent'], required: true },
   propertyType:     { type: String, enum: ['apartment', 'house', 'villa', 'office', 'plot', 'shop'], required: true },

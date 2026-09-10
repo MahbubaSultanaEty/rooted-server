@@ -1,58 +1,6 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
-
-const { Schema } = mongoose;
-
-// Minimal inline schemas to avoid import issues
-const propertySchema = new Schema({
-  title:            { type: String, required: true },
-  slug:             { type: String, required: true, unique: true, lowercase: true },
-  shortDescription: { type: String, required: true },
-  description:      { type: String, required: true },
-  listedBy:         { type: Schema.Types.ObjectId, ref: 'User' },
-  status:           { type: String, default: 'active' },
-  listingType:      { type: String, enum: ['sale', 'rent'], required: true },
-  propertyType:     { type: String, required: true },
-  price:            { type: Number, required: true },
-  priceUnit:        { type: String, default: 'total' },
-  isNegotiable:     { type: Boolean, default: false },
-  location: {
-    address:  String,
-    area:     String,
-    city:     { type: String, required: true },
-    country:  { type: String, default: 'Bangladesh' },
-    coordinates: {
-      type: { type: String, default: 'Point' },
-      coordinates: [Number],
-    },
-  },
-  specs: {
-    bedrooms:   Number,
-    bathrooms:  Number,
-    size:       Number,
-    furnishing: String,
-    floorNumber: Number,
-    yearBuilt:  Number,
-  },
-  amenities: {
-    lift: Boolean, generator: Boolean, security: Boolean, cctv: Boolean,
-    gym: Boolean, pool: Boolean, garden: Boolean, rooftopAccess: Boolean,
-    gasLine: Boolean, waterSupply: Boolean, internetReady: Boolean, petFriendly: Boolean,
-  },
-  images: [
-      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80",
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80",
-      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80"
-    ],
-  stats: {
-    views: { type: Number, default: 0 },
-    saves: { type: Number, default: 0 },
-    avgRating: { type: Number, default: 0 },
-    reviewCount: { type: Number, default: 0 },
-  },
-}, { timestamps: true });
-
-const Property = mongoose.model('Property', propertySchema);
+import { Property } from '../models/Property.js';
 
 const SEED_PROPERTIES = [
   {
@@ -1677,7 +1625,15 @@ async function seed() {
     await Property.deleteMany({});
     console.log('🗑️  Cleared existing properties');
 
-    const inserted = await Property.insertMany(SEED_PROPERTIES);
+    // Real Property model requires listedBy; agentEmail is display-only seed metadata
+    const seedAgentId = new mongoose.Types.ObjectId();
+    const docs = SEED_PROPERTIES.map(({ agentEmail, ...rest }) => ({
+      ...rest,
+      listedBy: seedAgentId,
+      status: rest.status || 'active',
+    }));
+
+    const inserted = await Property.insertMany(docs);
     console.log(`🌱 Seeded ${inserted.length} properties successfully!`);
 
     // Show summary

@@ -16,25 +16,37 @@ import usersRouter from './routes/users.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ── CORS ──────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'https://rooted-client.vercel.app',
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true, // required for Better Auth session cookies
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// ── Better Auth — must be mounted BEFORE express.json() ───────
-// Better Auth handles its own body parsing for auth routes
-app.all('/api/auth/*', toNodeHandler(auth));
+if (auth) {
+  app.all('/api/auth/*', toNodeHandler(auth));
+} else {
+  app.all('/api/auth/*', (_req, res) => {
+    res.status(503).json({ error: 'Auth is not configured (missing MONGODB_URI)' });
+  });
+}
 
-// ── Body Parsing ──────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── API Routes ────────────────────────────────────────────────
 app.use('/api/properties', propertiesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/reviews', reviewsRouter);
@@ -42,17 +54,23 @@ app.use('/api/activity', activityRouter);
 app.use('/api/recommendations', recommendationsRouter);
 app.use('/api/chat', chatRouter);
 
-// ── Health Check ──────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'Rooted API',
+    status: 'ok',
+    health: '/api/health',
+    properties: '/api/properties',
+  });
+});
+
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ── 404 Handler ───────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Route not found', path: req.path });
 });
 
-// ── Global Error Handler ──────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('[Error]', err.message);
   res.status(err.status || 500).json({
@@ -60,9 +78,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ── Start ─────────────────────────────────────────────────────
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🌿 Rooted server running on http://localhost:${PORT}`);
-  });
-});
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`🌿 Rooted server running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error('❌ MongoDB connection failed:', err.message);
+      process.exit(1);
+    });
+}
+
+export default app;
